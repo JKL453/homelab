@@ -1,0 +1,81 @@
+http:
+  routers:
+    # Define a connection between requests and services
+    octopi:
+      entryPoints: http
+      rule: "Host(`octopi.local.example.com`)"
+      # If the rule matches, forward to the whoami service (declared below)
+      service: octopi
+      middlewares:
+        - "octopi-https-redirect"
+    octopi-secure:
+      entryPoints: https
+      rule: "Host(`octopi.local.example.com`)"
+      service: octopi
+      middlewares:
+        - "octopi-https-redirect"
+      tls: true
+
+    fritzbox:
+      entryPoints: http
+      rule: "Host(`fritzbox.local.example.com`)"
+      service: fritzbox
+      middlewares:
+        - "fritzbox-https-redirect"
+    fritzbox-secure:
+      entryPoints: https
+      rule: "Host(`fritzbox.local.example.com`)"
+      service: fritzbox
+      middlewares:
+        - "fritzbox-https-redirect"
+      tls: true
+
+    homeassistant:
+      entryPoints: http
+      rule: "Host(`homeassistant.local.example.com`)"
+      service: homeassistant
+      middlewares:
+        - "homeassistant-https-redirect"
+    homeassistant-secure:
+      entryPoints: https
+      rule: "Host(`homeassistant.local.example.com`)"
+      service: homeassistant
+      middlewares:
+        - "homeassistant-https-redirect"
+      tls: true
+
+  services:
+    # Define how to reach an existing service on our infrastructure
+    octopi:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.188.38:80"
+        passHostHeader: true
+      
+    fritzbox:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.188.1:80"
+        passHostHeader: true
+
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://homeassistant.local:8123"
+        passHostHeader: true
+
+  middlewares:
+    octopi-https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    fritzbox-https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    homeassistant-https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true

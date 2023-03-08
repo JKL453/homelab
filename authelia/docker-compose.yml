@@ -1,0 +1,44 @@
+---
+version: "3"
+
+services:
+  authelia:
+    image: authelia/authelia
+    restart: unless-stopped
+    networks:
+      - proxy
+    expose:
+      - 9091
+    volumes:
+      - /path/to/authelia/data:/config
+    environment:
+      TZ: "Berlin/Germany"
+    deploy:
+      labels:
+        - 'traefik.enable=true'
+        - 'traefik.http.routers.authelia.rule=Host(`auth.local.example.com`)'
+        - 'traefik.http.routers.authelia.entryPoints=https'
+        - 'traefik.http.routers.authelia.tls=true'
+        - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+
+        - 'traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/verify?rd=https://auth.local.example.com'
+        - 'traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader=true'
+        - 'traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email'
+
+
+        - 'traefik.http.middlewares.authelia-basic.forwardAuth.address=http://authelia:9091/api/verify?auth=basic'
+        - 'traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader=true'
+        - 'traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email'
+        
+        - "traefik.http.routers.authelia.entrypoints=http"
+        - "traefik.http.middlewares.authelia-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.routers.authelia.middlewares=authelia-https-redirect"
+        - "traefik.http.routers.authelia-secure.entrypoints=https"
+        - "traefik.http.routers.authelia-secure.rule=Host(`auth.local.example.com`)"
+        - "traefik.http.routers.authelia-secure.tls=true"
+        - "traefik.http.routers.authelia-secure.service=authelia"
+        - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true

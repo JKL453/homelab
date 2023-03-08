@@ -1,0 +1,31 @@
+---
+version: "3"
+services:
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    networks:
+      - proxy
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+    volumes:
+      - /path/to/heimdall/config:/config
+    restart: unless-stopped
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.heimdall.entrypoints=http"
+        - "traefik.http.routers.heimdall.rule=Host(`heimdall.local.example.com`)"
+        - "traefik.http.middlewares.heimdall-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.routers.heimdall.middlewares=heimdall-https-redirect"
+        - "traefik.http.routers.heimdall-secure.entrypoints=https"
+        - "traefik.http.routers.heimdall-secure.rule=Host(`heimdall.local.example.com`)"
+        - "traefik.http.routers.heimdall-secure.tls=true"
+        - "traefik.http.routers.heimdall-secure.service=heimdall"
+        - "traefik.http.services.heimdall.loadbalancer.server.port=80"
+        - "traefik.docker.network=proxy"
+        
+networks:
+  proxy:
+    external: true

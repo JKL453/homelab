@@ -1,0 +1,85 @@
+version: '3'
+
+services:
+  whoami:
+    image: traefik/whoami
+    networks:
+      - proxy
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.whoami.entrypoints=http"
+        - "traefik.http.routers.whoami.rule=Host(`whoami.local.example.com`)"
+        - "traefik.http.middlewares.whoami-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.routers.whoami.middlewares=whoami-https-redirect"
+        - "traefik.http.routers.whoami-secure.middlewares=authelia@docker"
+        - "traefik.http.routers.whoami-secure.entrypoints=https"
+        - "traefik.http.routers.whoami-secure.rule=Host(`whoami.local.example.com`)"
+        - "traefik.http.routers.whoami-secure.tls=true"
+        - "traefik.http.routers.whoami-secure.service=whoami"
+        - "traefik.http.services.whoami.loadbalancer.server.port=80"
+        - "traefik.docker.network=proxy"
+          
+  traefik:
+    image: traefik:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    command: 
+      - "--api.insecure=true" 
+      - "--providers.docker"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.file.filename=config.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.https.address=:443"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cloudflare.acme.email=j.kappel@posteo.de"
+      - "--certificatesresolvers.cloudflare.acme.storage=acme.json"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.0.0.1:53"
+      - "--log.level=ERROR"
+      - "--api.dashboard=true"
+      - "--api.debug=true"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/path/to/traefik/acme.json:/acme.json"
+      - "/path/to/traefik/config.yml:/config.yml:ro"
+    environment:
+      - CF_API_EMAIL=email@example.com
+      - CF_DNS_API_TOKEN= <API TOKEN>
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=proxy"
+        - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.routers.traefik.rule=Host(`traefik.local.example.com`)"
+        - "traefik.http.routers.traefik.entrypoints=http"
+        - "traefik.http.routers.traefik.middlewares=traefik-https-redirect"
+        - "traefik.http.routers.traefik-secure.rule=Host(`traefik.local.example.com`)"
+        - "traefik.http.routers.traefik-secure.entrypoints=https"
+        - "traefik.http.routers.traefik-secure.tls=true"
+        - "traefik.http.routers.traefik-secure.service=api@internal"
+        - "traefik.http.routers.traefik-secure.tls.certresolver=cloudflare"
+        - "traefik.http.routers.traefik-secure.middlewares=authelia@docker"
+        - "traefik.http.routers.traefik-secure.tls.domains[0].main=local.example.com"
+        - "traefik.http.routers.traefik-secure.tls.domains[0].sans=*.local.example.com"
+        - "traefik.http.services.traefik.loadbalancer.server.port=80"
+
+networks:
+  proxy:
+    driver: overlay
+
+    external: true 
